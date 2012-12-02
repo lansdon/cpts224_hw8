@@ -3,6 +3,7 @@
 #include <string.h>
 #include <limits.h>
 
+#include "debug.h"
 #include "cma.h"
 
 #define ITEMNOTFOUND ((void *)-1)
@@ -17,11 +18,14 @@ static struct {
 } class_counters={0,0,0,0,0,0};
 
 static MNode class_AddToList(MNode list, MNode item) {
+  ENTER;
   item->next = list;
-  return item;
+  RETURN(item);
 }
 
 static MNode class_RemoveFromList(MNode list,MNode item) {
+  ENTER;
+
   MNode p,prev;
 
   prev = NULL;
@@ -31,26 +35,31 @@ static MNode class_RemoveFromList(MNode list,MNode item) {
 	list=p->next;
       else
 	prev->next = p->next;
-      return list;
+      RETURN(list);
     }
     prev=p;
   }
   //not in list..
-  return ITEMNOTFOUND;
+  RETURN(ITEMNOTFOUND);
 }
 
 
 static void class_printList(MNode list) {
-  if (!list)
+  ENTER;
+  if (!list) {
+	EXIT;
     return;
+  }
   printf("Node %p, %d\n",list,list->size);
   class_printList(list->next);
+  EXIT;
 }
 
 int class_memory(void *mem, size_t size) {
+  ENTER;
   MNode item;
   if (class_membase ) {
-    return FALSE;
+    RETURN(FALSE);
   }
 
   class_membase = mem;
@@ -62,18 +71,21 @@ int class_memory(void *mem, size_t size) {
   item->next = NULL;
   
   class_nouse = class_AddToList(class_nouse,item);
+  EXIT;
 }
 
 void *class_calloc(size_t nmemb, size_t size) {
+  ENTER;
   void *mem;
   class_counters.calloc++;
 
   mem = class_malloc(nmemb*size);
   memset(mem,0,nmemb*size);
-  return mem;
+  RETURN(mem);
 }
 
 static MNode class_findNoUse(size_t target) {
+  ENTER;
   size_t closeness=LONG_MAX;
   size_t c;
   MNode best=NULL;
@@ -86,10 +98,11 @@ static MNode class_findNoUse(size_t target) {
       closeness=c;
     }
   }
-  return best;
+  RETURN(best);
 }
 
 MNode class_splitNode(MNode org,size_t size) {
+  ENTER;
 	MNode extra=NULL;
 	size_t orgsz = org->size;
 	
@@ -101,10 +114,11 @@ MNode class_splitNode(MNode org,size_t size) {
 		extra->size = orgsz-sizeof(struct MemNode)-size;
 	}
 	
-	return extra;
+	RETURN(extra);
 }
 
 void *class_malloc(size_t size) {
+  ENTER;
   MNode newnode,extra;
 
   class_counters.malloc++;
@@ -120,52 +134,64 @@ void *class_malloc(size_t size) {
     
     newnode->next = NULL;
     class_inuse = class_AddToList(class_inuse,newnode);
-    return (void *)newnode+sizeof(struct MemNode);
+    RETURN((void *)newnode+sizeof(struct MemNode));
   }
   else {
     class_counters.nomem++;
-    return NULL;
+    RETURN(NULL);
   }
 }
 
 //attempt to find adjacent unused nodes and collapse them.
 static void class_garbage() {
+  ENTER;
 	//Not Implemented
 
+
+  EXIT;
 }
 
 void class_free(void *ptr) {
+  ENTER;
   MNode cur=NULL;
-  if (!ptr)
+  if (!ptr) {
+	EXIT;
     return;
+  }
 
   class_counters.free++;
   cur=class_RemoveFromList(class_inuse,PTRTOMNODE(ptr));
   if (cur==ITEMNOTFOUND) {//not our pointer
+	EXIT;  
     return;
   }
   class_inuse = cur;
   class_nouse = class_AddToList(class_nouse,PTRTOMNODE(ptr));
   class_garbage();
+  EXIT;
 }
 
 void *class_realloc(void *ptr, size_t size) {
+  ENTER;
   void *mem;
   size_t oldsize;
 
   class_counters.realloc++;
   mem=class_malloc(size);
-  if (!mem)
-    return NULL;
-
+  if (!mem) {
+	EXIT;
+	return;
+  }
+    
   oldsize=PTRTOMNODE(ptr)->size;
   memcpy(mem,ptr,oldsize);
 
   class_free(ptr);
-  return mem;
+  RETURN(mem);
 }
 
 void class_stats() {
+  ENTER;
   printf("InUse\n");
   class_printList(class_inuse);
 
@@ -181,5 +207,6 @@ void class_stats() {
   DUMPC(gc);
   DUMPC(nomem);
 #undef DUMPC
+  EXIT
 }
 
