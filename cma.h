@@ -8,13 +8,14 @@ struct MemNode {
 };
 
 #define PTRTOMNODE(x) ((MNode)(x-sizeof(struct MemNode)))
-
+#define NXT(e) ((void*)e+e->size+sizeof(struct MemNode))
 
 void *class_calloc(size_t nmemb, size_t size);
 void *class_malloc(size_t size);
 void class_free(void *ptr);
 void *class_realloc(void *ptr, size_t size);
 int class_memory(void *mem, size_t size);
+static void class_garbage();
 
 void class_stats();
 

@@ -32,9 +32,9 @@ static MNode class_RemoveFromList(MNode list,MNode item) {
   for (p = list; p!=NULL; p = p->next) {
     if (p == item) {
       if (prev == NULL)
-	list=p->next;
+list=p->next;
       else
-	prev->next = p->next;
+prev->next = p->next;
       RETURN(list);
     }
     prev=p;
@@ -47,7 +47,7 @@ static MNode class_RemoveFromList(MNode list,MNode item) {
 static void class_printList(MNode list) {
   ENTER;
   if (!list) {
-	EXIT;
+EXIT;
     return;
   }
   printf("Node %p, %d\n",list,list->size);
@@ -87,9 +87,9 @@ void *class_calloc(size_t nmemb, size_t size) {
 static MNode class_findNoUse(size_t target) {
   ENTER;
   size_t closeness=LONG_MAX;
-  size_t c;
+  size_t c = 0;
   MNode best=NULL;
-  MNode p;
+  MNode p=NULL;
 
   for (p=class_nouse;p!=NULL;p=p->next) {
     c = p->size - target;
@@ -103,18 +103,18 @@ static MNode class_findNoUse(size_t target) {
 
 MNode class_splitNode(MNode org,size_t size) {
   ENTER;
-	MNode extra=NULL;
-	size_t orgsz = org->size;
-	
-	//we need room for a new header
-	if ( (orgsz-size-sizeof(struct MemNode)) > 0 ) {
-		org->size = size;
-		extra = (MNode)((void*)org+size+sizeof(struct MemNode));
-		extra->next = 0;
-		extra->size = orgsz-sizeof(struct MemNode)-size;
-	}
-	
-	RETURN(extra);
+MNode extra=NULL;
+size_t orgsz = org->size;
+
+//we need room for a new header
+if ( (orgsz-size-sizeof(struct MemNode)) > 0 ) {
+org->size = size;
+extra = (MNode)((void*)org+size+sizeof(struct MemNode));
+extra->next = 0;
+extra->size = orgsz-sizeof(struct MemNode)-size;
+}
+
+RETURN(extra);
 }
 
 void *class_malloc(size_t size) {
@@ -142,27 +142,59 @@ void *class_malloc(size_t size) {
   }
 }
 
+
 //attempt to find adjacent unused nodes and collapse them.
+/* track two MNodes here and there
+set here to start of no_use list
+until no more postenders are found do
+  traverse linked list from here->next to end using there as pointer
+    if here+here->size is the same as there you found a post-ender
+       change here->next to there->next
+       increase here->size by sizeof there, and size of there's header
+       add one to the garbage collect counter
+       break out of traversal loop
+  end traverse
+end until
+*/
 static void class_garbage() {
-  ENTER;
-	//Not Implemented
+        int count = 0;
+		MNode here = class_nouse;
+		MNode there = here->next;		
+		while(TRUE) {
+        unsigned int startCount = count;
+        
+//        for(MNode here=class_nouse; here; here = here->next ) {
+            for(there=here->next; there; there = there->next) {
+                    if(NXT(here) == there) {
+                                here->next = there->next;
+                                here->size += sizeof(*there) + there->size;
+                                printf("Collapsing! -- Garbage Count = %d\n", ++count);
+                    }
+            } 
+//        } 
 
-
-  EXIT;
+        // If inside loop did nothing stop searching. 
+        if(startCount == count) { 
+            if(count)
+                printf("Garbage Final Count = %d\n", count);
+            break;
+        }
+    }
 }
+
 
 void class_free(void *ptr) {
   ENTER;
   MNode cur=NULL;
   if (!ptr) {
-	EXIT;
+EXIT;
     return;
   }
 
   class_counters.free++;
   cur=class_RemoveFromList(class_inuse,PTRTOMNODE(ptr));
   if (cur==ITEMNOTFOUND) {//not our pointer
-	EXIT;  
+EXIT;
     return;
   }
   class_inuse = cur;
@@ -179,8 +211,8 @@ void *class_realloc(void *ptr, size_t size) {
   class_counters.realloc++;
   mem=class_malloc(size);
   if (!mem) {
-	EXIT;
-	return;
+EXIT;
+return;
   }
     
   oldsize=PTRTOMNODE(ptr)->size;
@@ -209,4 +241,3 @@ void class_stats() {
 #undef DUMPC
   EXIT
 }
-
